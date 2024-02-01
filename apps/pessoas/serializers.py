@@ -49,9 +49,9 @@ class TipoPessoaSerializer(serializers.ModelSerializer):
 
         # Adiciona a chave estrangeira não nula ao JSON
         if instance.pessoa_fisica:
-            representation['pessoa'] = PessoaFisicaSerializer(instance.pessoa_fisica).data
+            representation['pessoa_fisica'] = PessoaFisicaSerializer(instance.pessoa_fisica).data
         elif instance.pessoa_juridica:
-            representation['pessoa'] = PessoaJuridicaSerializer(instance.pessoa_juridica).data
+            representation['pessoa_juridica'] = PessoaJuridicaSerializer(instance.pessoa_juridica).data
             
 
         return representation
@@ -79,7 +79,6 @@ class TipoPessoaSerializer(serializers.ModelSerializer):
         return tipo_pessoa
 
     def update(self, instance, validated_data):
-        print( f"00000000000000|{validated_data}|00000000000000" )
         tipo_pessoa_data, pessoa_fisica_data, pessoa_juridica_data = '', validated_data.pop('pessoa_fisica', None), validated_data.pop('pessoa_juridica', None)
         if pessoa_fisica_data:
             pessoa_fisica_serializer = PessoaFisicaSerializer(instance.pessoa_fisica, data=pessoa_fisica_data, partial=True)
@@ -104,7 +103,6 @@ class TipoPessoaSerializer(serializers.ModelSerializer):
                 tipo_pessoa_data = pessoa_fisica_serializer.save()
         elif pessoa_juridica_data:
             pessoa_juridica_serializer = PessoaJuridicaSerializer(instance.pessoa_juridica, data=pessoa_juridica_data, partial=True)
-            print("4444444444444")
             if pessoa_juridica_serializer.is_valid(raise_exception=True):
                 if not instance.pessoa_juridica:
                     instance.pessoa_juridica = PessoaJuridica.objects.create(cnpj=pessoa_juridica_data.pop('cnpj'), inscricao_estadual=pessoa_juridica_data.pop('inscricao_estadual'))
@@ -134,11 +132,10 @@ class ContatoSerializer(serializers.ModelSerializer):
         if email is not None and not verificar_email( email ):
             raise serializers.ValidationError({'email': f"Email inválido" })
         if telefone and not verificar_celular( telefone ):
-            raise serializers.ValidationError({'telefone': f"O número de celular deve seguir o seguinte padrão (44)91234-1234!|"})
+            raise serializers.ValidationError({'telefone': f"O número de celular deve seguir o seguinte padrão (44) 91234-1234!|"})
         return data
     
     def update( self, instance, validated_data ):
-        print("### UPDATE CONTATO ###")
         instance.data_atualizacao = timezone.now()
         instance.save()
         return super().update(instance, validated_data)
@@ -149,9 +146,9 @@ class EnderecoSerializer(serializers.ModelSerializer):
         exclude = ['id','observacao', 'data_criacao','data_atualizacao']
     
 class ClienteSerializer(serializers.ModelSerializer):
-    tipo_pessoa = TipoPessoaSerializer( )
-    contato = ContatoSerializer()
-    endereco = EnderecoSerializer()
+    tipo_pessoa = TipoPessoaSerializer( read_only=False )
+    contato = ContatoSerializer( read_only=False )
+    endereco = EnderecoSerializer( read_only=False )
 
     class Meta:
         model = Cliente
@@ -183,6 +180,30 @@ class ClienteSerializer(serializers.ModelSerializer):
 
         return super().update(instance, validated_data)
         
+    def create( self, validated_data ):
+        nome, ativo, observacao = validated_data.get('nome', None), validated_data.get('ativo', None), validated_data.get('observacao', None)
+        cliente = Cliente( nome=nome, ativo=ativo, observacao=observacao )
+        contato_data = validated_data.get('contato', None) 
+        if contato_data:
+            contato_serializer = ContatoSerializer( data=contato_data )
+            contato_serializer.is_valid(raise_exception=True)
+            contato_serializer.save()
+            cliente.contato = contato_serializer.instance
+        endereco_data = validated_data.get('endereco',None)
+        if endereco_data:
+            endereco_serializer = EnderecoSerializer(data=endereco_data )
+            endereco_serializer.is_valid(raise_exception=True)
+            endereco_serializer.save()
+            cliente.endereco = endereco_serializer.instance
+        tipo_pessoa_data = validated_data.get('tipo_pessoa',None)
+        if tipo_pessoa_data:
+            tipo_pessoa_serializer = TipoPessoaSerializer( data=tipo_pessoa_data )
+            tipo_pessoa_serializer.is_valid(raise_exception=True)
+            tipo_pessoa_serializer.save()
+            cliente.tipo_pessoa = tipo_pessoa_serializer.instance
+        
+        cliente.save()
+        return cliente
 
 class ClienteSerializerV2(serializers.ModelSerializer):
     tipo_pessoa = TipoPessoaSerializer()

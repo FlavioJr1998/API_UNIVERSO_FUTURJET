@@ -23,7 +23,7 @@ class FormaPagmento( BaseModel ):
     descricao = models.CharField(max_length=20, null=False, choices=FORMAS_PG_CHOICES, default='')
 
     def __str__(self):
-        return f"{ self.descricao }"
+        return f"{self.pk}" 
     
 class Entrada ( BaseModel ):
     # ENTRADA NO NEGÓCIO
@@ -63,10 +63,10 @@ class PgmentoRecursoProprio( BaseModel):
     
 class FinanceiroProposta( models.Model ):
     # TABELA FINANCEIRO PRINCIPAL
-    tb_entrada = models.ForeignKey( Entrada, null=True, on_delete=models.CASCADE, related_name="financeiro_entrada") 
-    tb_pgmento_financiamento = models.ForeignKey( PgmentoFinanciamento, null=True, on_delete=models.CASCADE, related_name="financeiro_modo_financiamento") 
-    tb_pgmento_recurso_proprio = models.ForeignKey( PgmentoRecursoProprio, null=True, on_delete=models.CASCADE, related_name="financeiro_modo_recurso_proprio")
-    tb_add_implemento = models.ForeignKey( AddImplemento, null=True, on_delete=models.CASCADE, related_name="financeiro_add_implemento")
+    tb_entrada = models.ForeignKey( Entrada, null=True, blank=True, on_delete=models.SET_NULL, related_name="financeiro_entrada") 
+    tb_pgmento_financiamento = models.ForeignKey( PgmentoFinanciamento, null=True, blank=True, on_delete=models.SET_NULL, related_name="financeiro_modo_financiamento") 
+    tb_pgmento_recurso_proprio = models.ForeignKey( PgmentoRecursoProprio, null=True, blank=True, on_delete=models.SET_NULL, related_name="financeiro_modo_recurso_proprio")
+    tb_add_implemento = models.ForeignKey( AddImplemento, null=True, blank=True, on_delete=models.SET_NULL, related_name="financeiro_add_implemento")
     preco_final = models.DecimalField( max_digits=10, decimal_places=2, null=False )
 
     def __str__(self):

@@ -1,10 +1,21 @@
 from rest_framework import viewsets, filters, status
-from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.response import Response 
-import logging
+from rest_framework.utils.serializer_helpers import ReturnDict
+from rest_framework.exceptions import ValidationError
+from rest_framework.decorators import api_view
+
+from django_filters.rest_framework import DjangoFilterBackend
+from django.forms.models import model_to_dict
+from django.shortcuts import get_object_or_404
+from django.http import Http404
+import json
+from django.core.serializers.json import DjangoJSONEncoder
+from django.http import JsonResponse
+
 from apps.pessoas.serializers import *
 from apps.pessoas.models import *
 from apps.financeiros.views import FinanceiroPropostaViewSet
+from apps.pessoas.views import ClientesViewSet
 from apps.gerador_proposta.serializers import *
 from apps.gerador_proposta.models import *
 
@@ -12,62 +23,76 @@ from apps.gerador_proposta.models import *
 class PropostasViewSet( viewsets.ModelViewSet ):
     """Listando Propostas"""
     queryset = TD_PropostaTecnicoComercial.objects.all()
-    serializer_class = PropostaSerializer
+    # serializer_class = PropostaSerializer
     #ADICIONANDO FILTROS
     # filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
     # ordering_fields = ['nome'] #POR QUAL CAMPO SERÁ ORDENADO
 
-    # def get_serializer_class(self):
-    #   if self.request.version == '2':
-    #     return ClienteSerializerV2
-    #   else:
-    #     return ClienteSerializer
+    def get_serializer_class(self):
+        # Use PropostaReadSerializer para requisições GET
+        # Use PropostaWriteSerializer para requisições CREATE (ou POST)
+        print("@@@@ get_serializer_class @@@@")
+        if self.action == 'create':
+            print("@@@ Entrou CREATE @@@")
+            return PropostaWriteSerializer
+        return PropostaReadSerializer
 
-    # def create(self, request):
-    #     tipo_pessoa_data = request.data['tipo_pessoa']
-    #     contato_data = request.data['contato']
-    #     endereco_data = request.data['endereco']
-    #     dados_simples = {chave: valor for chave, valor in request.data.items() if not isinstance(valor, dict)}
-    #     cliente_data = {
-    #         'tipo_pessoa': tipo_pessoa_data,
-    #         'contato': contato_data,
-    #         'endereco': endereco_data,
-    #         **dados_simples
-    #     }
-    #     serializer = ClienteSerializer(data=cliente_data)
+    def criar_ou_obter_cliente(self, dados_cliente):
+        if type(dados_cliente) == dict:
+            cliente_serializer = ClienteSerializer(data=dados_cliente)
+            if cliente_serializer.is_valid():
+                cliente = cliente_serializer.save()
+                return cliente
+            else:
+                raise ValidationError(cliente_serializer.errors)
+        else:
+            print(f"$$ OBJ Cliente possui ID:{dados_cliente} $$")
+            try:
+                return Cliente.objects.get(id=int(dados_cliente))
+            except Cliente.DoesNotExist:
+                raise ValidationError({"cliente": ["Cliente não encontrado."]})
 
-    #     if serializer.is_valid():
-    #         serializer.save()
-    #         response_data = serializer.data
-    #         response = Response(response_data, status=status.HTTP_201_CREATED)
-    #         id = str(serializer.data['id'])
-    #         response['Location'] = request.build_absolute_uri() + id
-    #         return response
-    #     else:
-    #         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    def criar_ou_obter_financeiro(self, dados_financeiro):
+        financeiro_serializer = FinanceiroPropostaSerializer(data=dados_financeiro)
+        if financeiro_serializer.is_valid():
+            financeiro = financeiro_serializer.save()
+            return financeiro
+        else:
+            raise ValidationError(financeiro_serializer.errors)
+    
+    def create(self, request, *args, **kwargs):
+        dados_proposta, dados_cliente, dados_financeiro = {}, request.data.pop("cliente", {}), request.data.pop("financeiro", {})
+        cliente, financeiro = None, None
+        try:
+            cliente = self.criar_ou_obter_cliente(dados_cliente)
+            financeiro = self.criar_ou_obter_financeiro(dados_financeiro)
 
-    # def update(self, request, pk):
-    #     print("@@@@@@ cHEGOU NO PATCH @@@@@@")
-    #     logger = logging.getLogger(__name__)
-    #     logger.debug(f'Dados recebidos: {request.data}')
-    #     proposta = self.get_object(pk)
-    #     serializer = self.get_serializer(proposta, data=request.data, partial=True)
-        
-    #     cliente_data = request.pop('cliente', None)
-    #     if cliente_data:
-    #         cliente_serializer = ClienteSerializer(request.cliente, data=cliente_data, partial=True)
-    #         if cliente_serializer.is_valid():
-    #             cliente_serializer.save()
+            dados_proposta["cliente"] = cliente.id
+            dados_proposta["financeiro"] = financeiro.id
+            dados_proposta['autor'] = request.data.pop("autor", {})
+            dados_proposta['versao_maquina'] = request.data.pop("versao_maquina", {})
             
-    #     if serializer.is_valid():
-    #         serializer.save()
+            serializer = self.get_serializer(data=dados_proposta)
+            
+            if serializer.is_valid():
+                instance = serializer.save() 
+                proposta_json = PropostaReadSerializer(instance).data
+                return Response(proposta_json, status=status.HTTP_201_CREATED)
+            else:
+                raise ValidationError(serializer.errors)
+        except ValidationError as ve:
+            # AJUSTAR EXCLUSÃO DO CLIENTE PARA APENAS QUANDO O ERRO FOR DO FINANCEIRO 
+            if type( dados_cliente ) == dict and cliente is not None:
+                    print("Excluindo cliente cadastrado na proposta invalida")
+                    Cliente.objects.get(id=cliente.id).delete()
 
-    #     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"detail": ve.detail}, status=status.HTTP_400_BAD_REQUEST)
+        
     def update(self, request, *args, **kwargs):
         partial = kwargs.pop('partial', True)
         instance = self.get_object()
         serializer = self.get_serializer(instance, data=request.data, partial=partial)
-        print( request.data )
+        
         if serializer.is_valid(raise_exception=True):
             self.perform_update(serializer)
             cliente_data, modelo_maquina_data = request.data.pop( 'cliente', None ), request.data.pop( 'modelo_maquina', None )
@@ -107,18 +132,46 @@ class PropostasViewSet( viewsets.ModelViewSet ):
                     modelo_maquina_serializer.save()
 
             if financeiro_data:
-                print("#### FINANCEIRO ####")
+                print("#### ATUALIZANDO FINANCEIRO PROPOSTA ####")
                 financeiro_instance = FinanceiroProposta.objects.get(id=instance.financeiro.id)
                 financeiro_serializer = FinanceiroPropostaSerializer(financeiro_instance, data=financeiro_data, partial=True)
                 if financeiro_serializer.is_valid():
                     financeiro_serializer.save()
 
             if versao_maquina_data:
-                print("## VERSAO MAQUINA ##")
-                
+                print("## ATUALIZANDO VERSÃO DA MÁQUINA PROPOSTA ##")
+                id_versao = int(versao_maquina_data.pop('id'))
+                try:
+                    nova_versao = get_object_or_404(TA_Versao, id=id_versao)
+                    instance.versao_maquina = nova_versao
+                    instance.save()
+                except Http404 as e:
+                    data = {
+                        'versao_maquina':'A versão informada não existe'
+                    }
+                    return Response(data, status=404)
+            
             if itens_upgrade_data:
-                pass
+                print("## ATUALIZANDO ITENS UPGRADE ##")
+                data_itens = TBA_ItensUpgradeVersaoMaquina.objects.filter( proposta=instance.id )
+                for item in itens_upgrade_data:
+                    if not data_itens.filter(item__id=item).exists():
+                        print(f"## Não contem o ITEM {item} ##")
+                        novo_item = TB_Item.objects.get(id=item)
+                        novos_itens_upgrade = TBA_ItensUpgradeVersaoMaquina.objects.create(proposta=instance, item=novo_item)
+                        novos_itens_upgrade.save() 
+                data_itens = TBA_ItensUpgradeVersaoMaquina.objects.filter( proposta=instance.id )
+                for item in data_itens:
+                    aux_bool = False
+                    for item_upgrade in itens_upgrade_data:
+                        if item_upgrade == item.item.id:
+                            aux_bool = True
+                            break
+                    if aux_bool == False:
+                        TBA_ItensUpgradeVersaoMaquina.objects.get( id=item.id).delete()
+
             if alcada_liberacao_data:
+                #CRIAR LÓGICA DE ALÇADAS
                 pass
 
             instance.data_atualizacao = timezone.now()
@@ -140,5 +193,33 @@ class PropostasViewSet( viewsets.ModelViewSet ):
             return Response(status=status.HTTP_204_NO_CONTENT)
         else:
             return Response(status=status.HTTP_404_NOT_FOUND)
-    
 
+class ModeloMaquinaViewSet( viewsets.ModelViewSet ):
+    queryset = TA_Modelo.objects.all()
+    serializer_class = ModeloMaquinaSerializer
+
+    @api_view(['GET'])
+    def obter_versoes_por_modelo( request, modelo_id ):
+        # Obtenha o modelo com base no modelo_id (certifique-se de substituir 'SeuModelo' pelo nome do seu modelo)
+        # modelo = get_object_or_404(SeuModelo, id=modelo_id)
+
+        # Supondo que você tenha um campo de chave estrangeira chamado 'modelo' em seu modelo Versao
+        versoes = TA_Versao.objects.filter(modelo_id=modelo_id)
+
+        print( versoes )
+        # Serialize as versões
+        serializer = VersaoMaquinaSerializer(versoes, many=True)
+
+        # Retorne a resposta JSON com as versões
+        return JsonResponse(serializer.data, safe=False, status=status.HTTP_200_OK)
+    
+class VersaoMaquinaViewSet( viewsets.ModelViewSet ):
+    queryset = TA_Versao.objects.all()
+    serializer_class = VersaoMaquinaSerializer
+
+class ItemViewSet( viewsets.ModelViewSet ):
+    queryset = TB_Item
+    serializer_class = ItemSerializer
+
+    def obter_itens_upgrade( request, bool_upgrade ):
+        pass

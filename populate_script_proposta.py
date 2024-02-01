@@ -1,17 +1,15 @@
 import os, django
-
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'setup.settings')
-django.setup()
-
 import random
+import hashlib
 from apps.pessoas.models import *
 from apps.financeiros.models import *
 from apps.gerador_proposta.models import *
-from faker_vehicle import VehicleProvider #https://pypi.org/project/faker-vehicle/
-from faker import Faker #
-from validate_docbr import CPF, CNPJ
-import hashlib
+from faker_vehicle import VehicleProvider #https://pypi.org/project/faker-vehicle/ |pip install faker-vehicle
+from faker import Faker #pip install Faker
+from validate_docbr import CPF, CNPJ #pip install validate-docbr
 
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'setup.settings')
+django.setup()
 #### ESTE ARQUIVO TEM COMO OBJETIVO POPULAR O BANCO DE DADOS COM PROPOSTAS FICTICIAS
 
 ####### FUNÇÃO PRINCIPAL ###########

@@ -41,7 +41,7 @@ class ClientesViewSet(viewsets.ModelViewSet):
         tipo_pessoa_instance.save()
         return tipo_pessoa_instance
     
-    def create(self, request):
+    def create( self, request ):
         tipo_pessoa_data = request.data['tipo_pessoa']
         contato_data = request.data['contato']
         endereco_data = request.data['endereco']

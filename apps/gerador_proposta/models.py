@@ -14,7 +14,7 @@ from django.utils import timezone
 
 class BaseModel ( models.Model ):
     observacao = models.CharField( max_length=300, null=True )
-    data_criacao = models.DateTimeField( auto_now_add=True )
+    data_criacao = models.DateTimeField( default=timezone.now )
     data_atualizacao = models.DateTimeField( null=True, blank=True )
 
     class Meta:
@@ -59,7 +59,7 @@ class TB_Item ( BaseModel ):
     def __str__ (self):
         return f"{self.descricao}"
 
-class TA_Versao( models.Model ):
+class TA_Versao( BaseModel ):
     descricao = models.CharField( max_length=50, blank=False)
     preco_venda = models.BigIntegerField(blank=False)
     modelo = models.ForeignKey(
@@ -72,9 +72,6 @@ class TA_Versao( models.Model ):
     upgrade = models.BooleanField( default=False )
     imagem_nome = models.CharField( max_length=50, null=False)
     capa_nome = models.CharField( max_length=50, null=False)
-    observacao = models.CharField(max_length=300, null=True)
-    data_criacao = models.DateTimeField(default=timezone.now)  
-    data_atualizacao = models.DateTimeField(null=True, blank=True)
                                             
     def __str__( self ):
         return f"{self.descricao}"
@@ -119,7 +116,7 @@ class TC_AlcadaLiberacao( BaseModel ):
 
 class TD_PropostaTecnicoComercial( BaseModel ):
     cliente = models.ForeignKey( Cliente, on_delete=models.CASCADE, null=False, related_name="gerador_proposta_cliente" )
-    modelo_maquina = models.ForeignKey( TA_Modelo, on_delete=models.SET_NULL, null=True,related_name="modelo_maquina_proposta" )
+    # modelo_maquina = models.ForeignKey( TA_Modelo, on_delete=models.SET_NULL, null=True,related_name="modelo_maquina_proposta" )
     versao_maquina = models.ForeignKey( TA_Versao, on_delete=models.SET_NULL, null=True, related_name="versao_maquina_proposta" )
     autor = models.ForeignKey( User, on_delete=models.SET_NULL, null=True, related_name="autor_proposta" )
     itens_upgrade = models.ManyToManyField( TB_Item, related_name="proposta_item_versao_upgrade", through="gerador_proposta.TBA_ItensUpgradeVersaoMaquina")

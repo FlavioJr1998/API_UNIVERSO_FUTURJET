@@ -1,0 +1,11 @@
+user.name=Flávio JR
+user.email=fjs73santosjunior@gmail.com
+safe.directory=/home/impala/Área de Trabalho/Futurjet/Site/portal_compras
+core.repositoryformatversion=0
+core.filemode=true
+core.bare=false
+core.logallrefupdates=true
+remote.origin.url=https://github.com/FlavioJr1998/API_UNIVERSO_FUTURJET.git
+remote.origin.fetch=+refs/heads/*:refs/remotes/origin/*
+branch.master.remote=origin
+branch.master.merge=refs/heads/master

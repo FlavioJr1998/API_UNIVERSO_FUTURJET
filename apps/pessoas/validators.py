@@ -21,7 +21,8 @@ def verificar_nome( nome ): #VALIDANDO NOME, PARA QUE NÃO POSSUA NÚMEROS
 
 def verificar_celular( celular ): #VALIDANDO TELEFONE, PARA QUE POSSUA MAIS DE 11 DIGITOS 
     """VERIFICA SE O CELULAR É VALIDO '(DDD)99999-9999'"""
-    modelo = '[0-9]{2} [0-9]{5}-[0-9]{4}'
+    # modelo = '([0-9]{2}) [0-9]{5}-[0-9]{4}'
+    modelo = r'\(\d{2}\) \d{5}-\d{4}'
     resposta = re.findall( modelo, celular )
     return resposta
     

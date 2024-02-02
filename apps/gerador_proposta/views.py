@@ -221,5 +221,11 @@ class ItemViewSet( viewsets.ModelViewSet ):
     queryset = TB_Item
     serializer_class = ItemSerializer
 
+    @api_view(['GET'])
     def obter_itens_upgrade( request, bool_upgrade ):
-        pass
+        print( type( bool_upgrade ))
+        if type(bool_upgrade) is bool:
+            itens = TB_Item.objects.filter(upgrade=bool_upgrade)
+            serializer = ItemSerializer(itens, many=True)
+            return JsonResponse(serializer.data, safe=False, status=status.HTTP_200_OK)
+        return JsonResponse("ERRO", safe=False, status=status.HTTP_400_BAD_REQUEST)

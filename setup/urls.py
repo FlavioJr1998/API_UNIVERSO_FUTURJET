@@ -14,9 +14,7 @@ class BoolConverter:
 
     def to_url(self, value): #Convertendo novamente para 'url'
         return 'true' if value else 'false'
-
 register_converter(BoolConverter, 'bool') #Informando para o django a conversão
-
 
 router = routers.DefaultRouter()
 router.register('pessoas/clientes', ClientesViewSet )

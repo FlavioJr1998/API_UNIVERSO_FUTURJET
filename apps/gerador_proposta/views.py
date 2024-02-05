@@ -5,10 +5,8 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.decorators import api_view
 
 from django_filters.rest_framework import DjangoFilterBackend
-from django.forms.models import model_to_dict
 from django.shortcuts import get_object_or_404
 from django.http import Http404
-import json
 from django.core.serializers.json import DjangoJSONEncoder
 from django.http import JsonResponse
 
@@ -229,3 +227,4 @@ class ItemViewSet( viewsets.ModelViewSet ):
             serializer = ItemSerializer(itens, many=True)
             return JsonResponse(serializer.data, safe=False, status=status.HTTP_200_OK)
         return JsonResponse("ERRO", safe=False, status=status.HTTP_400_BAD_REQUEST)
+
